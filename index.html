@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Arduino Quiz</title>
+<style>
+/* Global styles */
+body { 
+  font-family: 'Poppins', Arial, sans-serif; 
+  margin:0; padding:0; 
+  display:flex; justify-content:center; align-items:center; 
+  min-height:100vh;
+  background: linear-gradient(135deg, #1d2b64, #f8cdda);
+}
+
+/* Container */
+.container { 
+  background: linear-gradient(145deg, #ffffff, #f0f0f0); 
+  padding: 30px; 
+  border-radius: 20px; 
+  width: 90%; max-width: 900px; 
+  box-shadow: 0 15px 40px rgba(0,0,0,0.3); 
+  transition: transform 0.3s; 
+}
+.container:hover {
+  transform: translateY(-5px);
+}
+
+/* Headings */
+h2 { color:#1d2b64; text-align:center; margin-bottom:20px; font-weight:700;}
+
+/* Buttons */
+button { 
+  background: linear-gradient(135deg,#1d2b64,#16337a); 
+  color:white; border:none; padding:12px 25px; 
+  border-radius:12px; cursor:pointer; margin:10px; 
+  box-shadow:0 5px 15px rgba(0,0,0,0.2);
+  transition: 0.3s;
+}
+button:hover { 
+  background: linear-gradient(135deg,#16337a,#1d2b64);
+  transform: translateY(-2px);
+  box-shadow:0 8px 20px rgba(0,0,0,0.3);
+}
+
+/* Hidden */
+.hidden { display:none; }
+
+/* Layout */
+.quiz-layout { display:grid; grid-template-columns:1fr auto; gap:20px; align-items:flex-start; }
+
+/* Horizontal scrollable bubbles */
+.bubble-column {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 10px;
+  margin-top: 20px;
+  padding-bottom: 10px;
+}
+.bubble-column::-webkit-scrollbar {
+  height: 8px;
+}
+.bubble-column::-webkit-scrollbar-thumb {
+  background: #1d2b64;
+  border-radius: 4px;
+}
+.bubble {
+  min-width: 40px; height: 40px; border-radius:50%;
+  background: #ddd; display:flex; justify-content:center; align-items:center;
+  cursor:pointer; flex-shrink:0; font-size:14px; font-weight:600;
+  transition: 0.3s; box-shadow:0 3px 6px rgba(0,0,0,0.2);
+}
+.bubble:hover { transform: scale(1.1); box-shadow:0 5px 12px rgba(0,0,0,0.3);}
+.bubble.active { background:#1d2b64; color:white; box-shadow: 0 0 15px #1d2b64; }
+.bubble.answered { background:#4caf50; color:white; box-shadow: 0 0 15px #4caf50; }
+
+/* Timer and Progress */
+.timer { font-size:18px; margin:10px 0; text-align:center; font-weight:600; color:#ff4500;}
+.progress { height:12px; background:#ddd; border-radius:6px; margin-bottom:20px; overflow:hidden; }
+.progress-bar { height:100%; background: linear-gradient(90deg,#1d2b64,#16337a); width:100%; transition:0.3s; }
+
+/* Question block */
+.question-block { 
+  background: linear-gradient(145deg,#ffffff,#e6e6e6); 
+  padding:20px; border-radius:15px; margin-bottom:15px; 
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1); 
+  transition: transform 0.3s;
+}
+.question-block:hover { transform: translateY(-3px); }
+.options label { display:block; margin:8px 0; cursor:pointer; font-weight:500; }
+
+/* Result */
+.result { font-size:22px; margin-top:20px; text-align:center; font-weight:700; color:#1d2b64; }
+
+/* Warning */
+.warning-box { 
+  background:#ffe0e0; color:#a60000; border:2px solid #a60000; 
+  padding:12px; border-radius:10px; margin:10px 0; display:none; font-weight:bold; text-align:center; 
+}
+
+/* Inputs */
+input[type=password], input[type=text] { 
+  padding:12px; width:80%; margin:10px 0; border-radius:10px; border:1px solid #ccc; font-size:16px;
+}
+
+/* Modal */
+#nameModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:1000;}
+#nameModalContent { background:white; padding:30px; border-radius:20px; text-align:center; width:320px; box-shadow:0 10px 30px rgba(0,0,0,0.3);}
+#nameModalContent input { width:90%; margin-bottom:15px; padding:10px; border-radius:10px; border:1px solid #ccc; font-size:16px;}
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- Login -->
+  <div id="loginBox">
+    <h2>🔒 Enter Password</h2>
+    <input type="password" id="password" placeholder="Enter password"><br>
+    <button onclick="checkPassword()">Submit</button>
+    <p id="error" style="color:red"></p>
+  </div>
+
+  <!-- Instructions -->
+  <div id="instructionsBox" class="hidden">
+    <h2>📜 Instructions</h2>
+    <ul style="text-align:left;">
+      <li>You have <b>60 seconds</b> to complete the quiz.</li>
+      <li>Do not switch tabs – first time warning, second time quiz ends.</li>
+      <li>Click bubbles on the right to navigate between questions.</li>
+    </ul>
+    <div style="text-align:center;"><button onclick="startQuiz()">Start Quiz</button></div>
+  </div>
+
+  <!-- Quiz -->
+  <div id="quizBox" class="hidden">
+    <div id="warningBox" class="warning-box">⚠️ Warning: Do not switch tabs again or you will FAIL!</div>
+    <div class="timer">⏳ Time left: <span id="time"></span>s</div>
+    <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+    <div class="quiz-layout">
+      <div id="questions">
+        <!-- Question blocks: 10 questions -->
+        <div class="question-block hidden">
+          <h3>1. What is Arduino?</h3>
+          <div class="options">
+            <label><input type="radio" name="q1" value="a"> Programming language</label>
+            <label><input type="radio" name="q1" value="b"> Sensor</label>
+            <label><input type="radio" name="q1" value="c"> Microcontroller platform</label>
+            <label><input type="radio" name="q1" value="d"> Motor</label>
+          </div>
+        </div>
+        <div class="question-block hidden">
+          <h3>2. Most common Arduino board?</h3>
+          <div class="options">
+            <label><input type="radio" name="q2" value="a"> Nano</label>
+            <label><input type="radio" name="q2" value="b"> Uno</label>
+            <label><input type="radio" name="q2" value="c"> Mega</label>
+            <label><input type="radio" name="q2" value="d"> Pro Mini</label>
+          </div>
+        </div>
+        <div class="question-block hidden">
+          <h3>3. Arduino programming language?</h3>
+          <div class="options">
+            <label><input type="radio" name="q3" value="a"> Python</label>
+            <label><input type="radio" name="q3" value="b"> C / C++</label>
+            <label><input type="radio" name="q3" value="c"> Java</label>
+            <label><input type="radio" name="q3" value="d"> HTML</label>
+          </div>
+        </div>
+        <div class="question-block hidden">
+          <h3>4. Function that loops continuously?</h3>
+          <div class="options">
+            <label><input type="radio" name="q4" value="a"> start()</label>
+            <label><input type="radio" name="q4" value="b"> main()</label>
+            <label><input type="radio" name="q4" value="c"> setup()</label>
+            <label><input type="radio" name="q4" value="d"> loop()</label>
+          </div>
+        </div>
+        <div class="question-block hidden">
+          <h3>5. Function called once at start?</h3>
+          <div class="options">
+            <label><input type="radio" name="q5" value="a"> loop()</label>
+            <label><input type="radio" name="q5" value="b"> main()</label>
+            <label><input type="radio" name="q5" value="c"> setup()</label>
+            <label><input type="radio" name="q5" value="d"> init()</label>
+          </div>
+        </div>
+        <div class="question-block hidden">
+          <h3>6. IDE for Arduino?</h3>
+          <div class="options">
+            <label><input type="radio" name="q6" value="a"> Eclipse</label>
+            <label><input type="radio" name="q6" value="b"> Visual Studio</label>
+            <label><input type="radio" name="q6" value="c"> Arduino IDE</label>
+            <label><input type="radio" name="q6" value="d"> Code::Blocks</label>
+          </div>
+        </div>
+        <div class="question-block hidden">
+          <h3>7. Arduino operating voltage?</h3>
+          <div class="options">
+            <label><input type="radio" name="q7" value="a"> 12V only</label>
+            <label><input type="radio" name="q7" value="b"> 5V or 3.3V</label>
+            <label><input type="radio" name="q7" value="c"> 1.8V</label>
+            <label><input type="radio" name="q7" value="d"> 9V only</label>
+          </div>
+        </div>
+        <div class="question-block hidden">
+          <h3>8. Max analog input pins on Uno?</h3>
+          <div class="options">
+            <label><input type="radio" name="q8" value="a"> 8</label>
+            <label><input type="radio" name="q8" value="b"> 6</label>
+            <label><input type="radio" name="q8" value="c"> 12</label>
+            <label><input type="radio" name="q8" value="d"> 4</label>
+          </div>
+        </div>
+        <div class="question-block hidden">
+          <h3>9. Function to initialize board?</h3>
+          <div class="options">
+            <label><input type="radio" name="q9" value="a"> setup()</label>
+            <label><input type="radio" name="q9" value="b"> loop()</label>
+            <label><input type="radio" name="q9" value="c"> init()</label>
+            <label><input type="radio" name="q9" value="d"> main()</label>
+          </div>
+        </div>
+        <div class="question-block hidden">
+          <h3>10. Microcontroller on Arduino Uno?</h3>
+          <div class="options">
+            <label><input type="radio" name="q10" value="a"> ATmega128</label>
+            <label><input type="radio" name="q10" value="b"> ATmega328P</label>
+            <label><input type="radio" name="q10" value="c"> PIC16F877A</label>
+            <label><input type="radio" name="q10" value="d"> STM32</label>
+          </div>
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div style="text-align:center;">
+          <button id="prevBtn">⬅ Previous</button>
+          <button id="nextBtn">Next ➡</button>
+        </div>
+      </div>
+
+      <!-- Bubbles -->
+      <div class="bubble-column">
+        <div class="bubble" data-q="0">1</div>
+        <div class="bubble" data-q="1">2</div>
+        <div class="bubble" data-q="2">3</div>
+        <div class="bubble" data-q="3">4</div>
+        <div class="bubble" data-q="4">5</div>
+        <div class="bubble" data-q="5">6</div>
+        <div class="bubble" data-q="6">7</div>
+        <div class="bubble" data-q="7">8</div>
+        <div class="bubble" data-q="8">9</div>
+        <div class="bubble" data-q="9">10</div>
+      </div>
+    </div>
+    <div id="result" class="result hidden"></div>
+  </div>
+</div>
+
+<!-- Modal for Name Input -->
+<div id="nameModal">
+  <div id="nameModalContent">
+    <h3>Enter Your Name</h3>
+    <input type="text" id="studentName" placeholder="Your Name">
+    <br>
+    <button onclick="submitName()">Generate Certificate</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+const { jsPDF } = window.jspdf;
+const quizPassword="arduino123";
+const totalTime=60;
+let timeLeft=totalTime, timer, currentQ=0, quizEnded=false, tabWarnings=0;
+const answers={q1:"c",q2:"b",q3:"b",q4:"d",q5:"c",q6:"c",q7:"b",q8:"b",q9:"c",q10:"b"};
+const questions=document.querySelectorAll(".question-block");
+const bubbles=document.querySelectorAll(".bubble");
+const nextBtn=document.getElementById("nextBtn");
+const prevBtn=document.getElementById("prevBtn");
+
+function checkPassword(){
+    if(document.getElementById("password").value===quizPassword){
+        document.getElementById("loginBox").classList.add("hidden");
+        document.getElementById("instructionsBox").classList.remove("hidden");
+    } else {
+        document.getElementById("error").textContent="❌ Wrong password!";
+    }
+}
+
+function startQuiz(){
+    document.getElementById("instructionsBox").classList.add("hidden");
+    document.getElementById("quizBox").classList.remove("hidden");
+    startTimer();
+    showQuestion(0);
+}
+
+function startTimer(){
+    document.getElementById("time").textContent=timeLeft;
+    timer=setInterval(()=>{
+        timeLeft--;
+        document.getElementById("time").textContent=timeLeft;
+        document.getElementById("progressBar").style.width=(timeLeft/totalTime*100)+"%";
+        if(timeLeft<=0){ clearInterval(timer); checkAnswers(); }
+    },1000);
+}
+
+function showQuestion(i){
+    questions.forEach((q,index)=>q.classList.toggle("hidden",index!==i));
+    bubbles.forEach((b,index)=>b.classList.toggle("active",index===i));
+    currentQ=i;
+    prevBtn.style.display=currentQ===0?"none":"inline-block";
+    nextBtn.textContent=currentQ===questions.length-1?"✅ Finish":"Next ➡";
+}
+
+nextBtn.addEventListener("click",()=>{ currentQ<questions.length-1?showQuestion(currentQ+1):checkAnswers(); });
+prevBtn.addEventListener("click",()=>{ if(currentQ>0) showQuestion(currentQ-1); });
+bubbles.forEach(b=>b.addEventListener("click",()=>showQuestion(parseInt(b.getAttribute("data-q")))));
+document.querySelectorAll("input[type=radio]").forEach(input=>input.addEventListener("change",()=>{ 
+    let qNum=input.name.replace("q",""); bubbles[qNum-1].classList.add("answered"); 
+}));
+
+document.addEventListener("visibilitychange",()=>{ 
+    if(document.hidden && !quizEnded){ 
+        tabWarnings++;
+        if(tabWarnings===1) document.getElementById("warningBox").style.display="block";
+        if(tabWarnings>=2) endQuizDueToTabSwitch();
+    } 
+});
+
+function endQuizDueToTabSwitch(){
+    clearInterval(timer);
+    quizEnded=true;
+    alert("❌ Quiz ended due to tab switching!");
+    showResult(0);
+}
+
+function checkAnswers(){
+    if(quizEnded) return;
+    clearInterval(timer);
+    quizEnded=true;
+    let score=0;
+    for(let i=1;i<=10;i++){
+        const selected=document.querySelector(`input[name=q${i}]:checked`);
+        if(selected && selected.value===answers[`q${i}`]) score++;
+    }
+    showResult(score);
+}
+
+function showResult(score){
+    document.getElementById("quizBox").classList.add("hidden");
+    const resultBox=document.getElementById("result");
+    resultBox.innerHTML=`<h2>🎉 Your Score: ${score}/10</h2>`;
+    resultBox.classList.remove("hidden");
+    document.getElementById("nameModal").style.display="flex";
+    window.finalScore = score;
+}
+
+function submitName(){
+    const name = document.getElementById("studentName").value.trim();
+    if(name==="") return alert("Please enter your name!");
+    document.getElementById("nameModal").style.display="none";
+    generatePDF(name, window.finalScore);
+}
+
+function generatePDF(name, score){
+    const doc = new jsPDF({unit:'pt', format:'a4'});
+    const width = doc.internal.pageSize.getWidth();
+
+    // Background
+    doc.setFillColor(245, 245, 255); 
+    doc.rect(0,0,width,450,'F');
+
+    // Border
+    doc.setLineWidth(4);
+    doc.setDrawColor(50, 50, 150);
+    doc.rect(20,20,width-40,410);
+
+    // Title
+    doc.setFontSize(24);
+    doc.setTextColor(255, 69, 0);
+    doc.setFont("helvetica","bold");
+    doc.text("Arduino Quiz Certificate", width/2, 50, {align:"center"});
+
+    // Subtitle
+    doc.setFontSize(14);
+    doc.setTextColor(75, 0, 130);
+    doc.setFont("helvetica","normal");
+    doc.text("This is to certify that", width/2, 90, {align:"center"});
+
+    // Name
+    doc.setFontSize(20);
+    doc.setFont("helvetica","bold");
+    doc.setTextColor(0, 100, 0);
+    doc.text(name, width/2, 120, {align:"center"});
+
+    // Achievement Text
+    doc.setFontSize(14);
+    doc.setFont("helvetica","normal");
+    doc.setTextColor(75, 0, 130);
+    doc.text("from Maker Works has successfully completed the Arduino Quiz", width/2, 150, {align:"center"});
+
+    // Score
+    doc.setFontSize(16);
+    doc.setFont("helvetica","bold");
+    doc.setTextColor(255, 140, 0);
+    doc.text(`Score: ${score}/10`, width/2, 180, {align:"center"});
+
+    // Date
+    doc.setFontSize(12);
+    doc.setFont("helvetica","normal");
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, width/2, 200, {align:"center"});
+
+    // Footer
+    doc.setFontSize(10);
+    doc.setTextColor(100,100,100);
+    doc.text("Keep learning and exploring electronics!", width/2, 230, {align:"center"});
+
+    doc.save(`Arduino_Quiz_Certificate_${name}.pdf`);
+}
+</script>
+</body>
+</html>
