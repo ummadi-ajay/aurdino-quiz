@@ -58,13 +58,6 @@ button:hover {
   margin-top: 20px;
   padding-bottom: 10px;
 }
-.bubble-column::-webkit-scrollbar {
-  height: 8px;
-}
-.bubble-column::-webkit-scrollbar-thumb {
-  background: #1d2b64;
-  border-radius: 4px;
-}
 .bubble {
   min-width: 40px; height: 40px; border-radius:50%;
   background: #ddd; display:flex; justify-content:center; align-items:center;
@@ -138,7 +131,7 @@ input[type=password], input[type=text] {
     <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
     <div class="quiz-layout">
       <div id="questions">
-        <!-- Question blocks: 10 questions -->
+        <!-- Question blocks -->
         <div class="question-block hidden">
           <h3>1. What is Arduino?</h3>
           <div class="options">
@@ -271,7 +264,7 @@ const { jsPDF } = window.jspdf;
 const quizPassword="arduino123";
 const totalTime=60;
 let timeLeft=totalTime, timer, currentQ=0, quizEnded=false, tabWarnings=0;
-const answers={q1:"c",q2:"b",q3:"b",q4:"d",q5:"c",q6:"c",q7:"b",q8:"b",q9:"c",q10:"b"};
+const answers={q1:"c",q2:"b",q3:"b",q4:"d",q5:"c",q6:"c",q7:"b",q8:"b",q9:"a",q10:"b"};
 const questions=document.querySelectorAll(".question-block");
 const bubbles=document.querySelectorAll(".bubble");
 const nextBtn=document.getElementById("nextBtn");
@@ -361,61 +354,48 @@ function submitName(){
     generatePDF(name, window.finalScore);
 }
 
-function generatePDF(name, score){
-    const doc = new jsPDF({unit:'pt', format:'a4'});
-    const width = doc.internal.pageSize.getWidth();
 
-    // Background
-    doc.setFillColor(245, 245, 255); 
-    doc.rect(0,0,width,450,'F');
+/* Certificate PDF Generator */
+function generatePDF(name, score) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF("landscape", "pt", "a4");
 
-    // Border
-    doc.setLineWidth(4);
-    doc.setDrawColor(50, 50, 150);
-    doc.rect(20,20,width-40,410);
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
 
-    // Title
-    doc.setFontSize(24);
-    doc.setTextColor(255, 69, 0);
-    doc.setFont("helvetica","bold");
-    doc.text("Arduino Quiz Certificate", width/2, 50, {align:"center"});
+  // Background certificate template
+  const img = new Image();
+  img.src = "White and Grey Bordered Simple Certificate of Appreciation (1).png"; 
+  // make sure this image is in the same folder as index.html
 
-    // Subtitle
-    doc.setFontSize(14);
-    doc.setTextColor(75, 0, 130);
-    doc.setFont("helvetica","normal");
-    doc.text("This is to certify that", width/2, 90, {align:"center"});
+  img.onload = function () {
+    // Draw full background
+    doc.addImage(img, "PNG", 0, 0, pageWidth, pageHeight);
 
-    // Name
-    doc.setFontSize(20);
-    doc.setFont("helvetica","bold");
-    doc.setTextColor(0, 100, 0);
-    doc.text(name, width/2, 120, {align:"center"});
+    // Recipient Name
+    doc.setFont("times", "italic");
+    doc.setFontSize(42);
+    doc.setTextColor(60, 60, 60);
+    doc.text(name, pageWidth / 2, 330, { align: "center" });
 
-    // Achievement Text
-    doc.setFontSize(14);
-    doc.setFont("helvetica","normal");
-    doc.setTextColor(75, 0, 130);
-    doc.text("from Maker Works has successfully completed the Arduino Quiz", width/2, 150, {align:"center"});
-
-    // Score
-    doc.setFontSize(16);
-    doc.setFont("helvetica","bold");
-    doc.setTextColor(255, 140, 0);
-    doc.text(`Score: ${score}/10`, width/2, 180, {align:"center"});
+    // Quiz Achievement Text
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(18);
+    doc.text(
+      `For successfully completing the Arduino Quiz with a score of ${score}/10`,
+      pageWidth / 2,
+      380,
+      { align: "center" }
+    );
 
     // Date
-    doc.setFontSize(12);
-    doc.setFont("helvetica","normal");
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, width/2, 200, {align:"center"});
+    doc.setFontSize(14);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 120, pageHeight - 100);
 
-    // Footer
-    doc.setFontSize(10);
-    doc.setTextColor(100,100,100);
-    doc.text("Keep learning and exploring electronics!", width/2, 230, {align:"center"});
-
-    doc.save(`Arduino_Quiz_Certificate_${name}.pdf`);
+    // Save file
+    doc.save(`${name}_certificate.pdf`);
+  };
 }
 </script>
 </body>
